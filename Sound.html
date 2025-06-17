@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>db-sensor</title>
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    background-color: #121212;
+    color: #0f0;
+    text-align: center;
+    padding: 40px;
+  }
+  h1 {
+    margin-bottom: 20px;
+  }
+  #dbValue {
+    font-size: 6rem;
+    margin: 20px 0;
+  }
+  button {
+    font-size: 1.3rem;
+    padding: 12px 24px;
+    cursor: pointer;
+    border-radius: 6px;
+    border: none;
+    background-color: #0a0;
+    color: white;
+  }
+</style>
+</head>
+<body>
+<h1>Raum-Schallpegelmesser</h1>
+<div id="dbValue">-- dB</div>
+<button id="startBtn">Mikrofon starten</button>
+
+<script>
+  const dbDisplay = document.getElementById('dbValue');
+  const startBtn = document.getElementById('startBtn');
+
+  startBtn.addEventListener('click', async () => {
+    startBtn.disabled = true;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const audioContext = new AudioContext();
+      const source = audioContext.createMediaStreamSource(stream);
+      const analyser = audioContext.createAnalyser();
+      analyser.fftSize = 2048;
+      source.connect(analyser);
+
+      const dataArray = new Uint8Array(analyser.fftSize);
+
+      function update() {
+        analyser.getByteTimeDomainData(dataArray);
+        let sumSquares = 0;
+        for(let i = 0; i < dataArray.length; i++) {
+          const normalized = (dataArray[i] - 128) / 128;
+          sumSquares += normalized * normalized;
+        }
+        const rms = Math.sqrt(sumSquares / dataArray.length);
+        let decibel = 20 * Math.log10(rms);
+        if(decibel === -Infinity) decibel = -100;
+        dbDisplay.textContent = decibel.toFixed(1) + ' dB';
+        requestAnimationFrame(update);
+      }
+      update();
+    } catch (e) {
+      alert('Mikrofonzugriff verweigert oder nicht verfügbar.');
+      startBtn.disabled = false;
+    }
+  });
+</script>
+</body>
+</html>
